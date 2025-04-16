@@ -1,13 +1,27 @@
 <!doctype html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
-  </head>
-  <body>
+    <title>Kurvalgom App</title>
+    <!-- Load scripts in the correct order -->
+    <script src="https://unpkg.com/absurd-sql@0.0.54/dist/sql-wasm.js"></script>
+    <script src="https://unpkg.com/absurd-sql@0.0.54/dist/index.js"></script>
+    <script src="https://unpkg.com/absurd-sql@0.0.54/dist/indexeddb-main-thread.js"></script>
+    <script>
+        // Make sure absurdSQL is explicitly added to window
+        window.addEventListener('DOMContentLoaded', () => {
+            if (!window.absurdSQL) {
+                console.error('absurdSQL failed to load properly');
+            } else {
+                console.log('absurdSQL loaded successfully');
+            }
+        });
+    </script>
+</head>
+<body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-  </body>
+</body>
 </html>

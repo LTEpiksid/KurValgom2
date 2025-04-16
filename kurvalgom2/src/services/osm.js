@@ -9,6 +9,7 @@ export const fetchNearbyRestaurants = async (lat, lng, radius = 1000) => {
                 way[amenity=restaurant](around:${safeRadius},${lat},${lng});
                 relation[amenity=restaurant](around:${safeRadius},${lat},${lng});
             );
+            out tags;
             out body;
             >;
             out skel qt;
@@ -26,7 +27,11 @@ export const fetchNearbyRestaurants = async (lat, lng, radius = 1000) => {
         const data = await response.json();
         return data.elements?.filter(element =>
             element.tags?.name && (element.lat || element.center?.lat)
-        ) || [];
+        ).map(element => ({
+            ...element,
+            // Simulate a rating since OSM doesn't provide this
+            simulatedRating: (Math.random() * 2 + 3).toFixed(1) // Random rating between 3.0 and 5.0
+        })) || [];
 
     } catch (error) {
         console.error("OSM Query Failed:", error);

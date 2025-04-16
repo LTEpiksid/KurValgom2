@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { fetchNearbyRestaurants, getAddressFromCoordinates } from '../services/osm';
 import useGeolocation from '../hooks/useGeolocation';
 import RestaurantMap from '../components/RestaurantMap';
@@ -11,6 +12,7 @@ export default function Home() {
     const [radius, setRadius] = useState(1000); // Default 1km
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
+    const navigate = useNavigate();
 
     const handleRadiusChange = (e) => {
         setRadius(parseInt(e.target.value));
@@ -53,6 +55,15 @@ export default function Home() {
         }
     };
 
+    const handleBlogSelection = () => {
+        // Navigate to the blog page with the selected restaurant
+        navigate('/blog', {
+            state: {
+                selectedRestaurant: randomRestaurant
+            }
+        });
+    };
+
     return (
         <div className="home-page dark-theme">
             <h1>Find a Random Restaurant</h1>
@@ -92,6 +103,16 @@ export default function Home() {
             {randomRestaurant && (
                 <div className="restaurant-result">
                     <RestaurantCard restaurant={randomRestaurant} />
+
+                    <div className="restaurant-actions">
+                        <button
+                            onClick={handleBlogSelection}
+                            className="action-btn"
+                        >
+                            Write Review for This Restaurant
+                        </button>
+                    </div>
+
                     <RestaurantMap
                         lat={randomRestaurant.lat}
                         lng={randomRestaurant.lon}
