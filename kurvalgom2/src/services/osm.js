@@ -1,38 +1,40 @@
+const cache = new Map();
+
 export const fetchNearbyRestaurants = async (lat, lng, radius = 1000) => {
+    const cacheKey = `${lat}:${lng}:${radius}`;
+    if (cache.has(cacheKey)) {
+        return cache.get(cacheKey);
+    }
+
     try {
-        const safeRadius = Math.min(Math.max(radius, 500), 20000); // Clamp between 500m-20km
+        const safeRadius = Math.min(Math.max(radius, 500), 5000); // Clamp between 500m-5km
 
         const query = `
-            [out:json][timeout:25];
-            (
-                node[amenity=restaurant](around:${safeRadius},${lat},${lng});
-                way[amenity=restaurant](around:${safeRadius},${lat},${lng});
-                relation[amenity=restaurant](around:${safeRadius},${lat},${lng});
-            );
+            [out:json][timeout:15];
+            node[amenity=restaurant](around:${safeRadius},${lat},${lng});
             out tags;
-            out body;
-            >;
-            out skel qt;
+            out center;
         `.replace(/\s+/g, ' ').trim();
 
         const response = await fetch(
             `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`,
             {
-                signal: AbortSignal.timeout(30000) // 30s timeout
+                signal: AbortSignal.timeout(15000) // 15s timeout
             }
         );
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
-        return data.elements?.filter(element =>
-            element.tags?.name && (element.lat || element.center?.lat)
+        const results = data.elements?.filter(element =>
+            element.tags?.name && element.lat
         ).map(element => ({
             ...element,
-            // Simulate a rating since OSM doesn't provide this
-            simulatedRating: (Math.random() * 2 + 3).toFixed(1) // Random rating between 3.0 and 5.0
+            simulatedRating: (Math.random() * 2 + 3).toFixed(1) // Random rating 3.0-5.0
         })) || [];
 
+        cache.set(cacheKey, results);
+        return results;
     } catch (error) {
         console.error("OSM Query Failed:", error);
         throw new Error("Failed to fetch restaurants. Please try again later.");
@@ -57,7 +59,6 @@ export const getAddressFromCoordinates = async (lat, lng) => {
             data.address?.city,
             data.address?.country
         ].filter(Boolean).join(', ') || 'Address not available';
-
     } catch (error) {
         console.error("Geocoding failed:", error);
         return 'Address not available';

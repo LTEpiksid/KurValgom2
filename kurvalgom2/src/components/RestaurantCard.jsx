@@ -1,37 +1,30 @@
-﻿export default function RestaurantCard({ restaurant }) {
-    const placeholderImage = "https://via.placeholder.com/300x200?text=No+Image+Available";
-    const imageUrl = restaurant.tags?.image || placeholderImage;
+﻿import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-    const renderStars = (rating) => {
-        const stars = Math.round(parseFloat(rating));
-        return "★".repeat(stars) + "☆".repeat(5 - stars);
+function RestaurantCard({ restaurant }) {
+    const [isHovered, setIsHovered] = useState(false);
+    const navigate = useNavigate();
+
+    const handleClick = () => {
+        navigate('/blog', { state: { selectedRestaurant: restaurant } });
     };
 
     return (
-        <div className="restaurant-card">
-            <img
-                src={imageUrl}
-                alt={restaurant.tags?.name || 'Restaurant'}
-                className="restaurant-image"
-                onError={(e) => (e.target.src = placeholderImage)}
-            />
-            <h2>{restaurant.tags?.name || 'Unnamed Restaurant'}</h2>
-            <p>📍 {restaurant.address}</p>
-            {restaurant.tags?.cuisine && (
-                <p>🍽️ Cuisine: {restaurant.tags.cuisine}</p>
-            )}
-            {restaurant.tags?.phone && (
-                <p>📞 {restaurant.tags.phone}</p>
-            )}
-            {restaurant.simulatedRating && (
-                <p>⭐ Rating: {renderStars(restaurant.simulatedRating)} ({restaurant.simulatedRating}/5)</p>
-            )}
-            {restaurant.tags?.website && (
-                <p>🌐 <a href={restaurant.tags.website} target="_blank" rel="noopener noreferrer">Visit Website</a></p>
-            )}
-            {restaurant.tags?.menu && (
-                <p>📋 <a href={restaurant.tags.menu} target="_blank" rel="noopener noreferrer">View Menu</a></p>
+        <div
+            className="restaurant-card p-4 cursor-pointer"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            onClick={handleClick}
+        >
+            <h3 className="text-lg font-semibold text-black">{restaurant?.tags?.name || 'Restaurant'}</h3>
+            {isHovered && (
+                <div className="info-overlay bg-mossy-green bg-opacity-80 text-white p-2 rounded-lg">
+                    <p>{restaurant?.tags?.vicinity || 'No address'}</p>
+                    <p>Rating: {restaurant?.tags?.rating || 'N/A'}</p>
+                </div>
             )}
         </div>
     );
 }
+
+export default RestaurantCard;

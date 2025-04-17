@@ -1,12 +1,12 @@
 ﻿import { useState, useEffect } from 'react';
-import { createBlogPost, getAllBlogPosts, updateBlogPost, deleteBlogPost } from '../services/indexedDB';
-import { getCurrentUser } from '../services/auth';
-import RestaurantCard from '../components/RestaurantCard';
+import { createBlogPost, getAllBlogPosts, updateBlogPost, deleteBlogPost } from '../services/supabase';
+import { useAuth } from '../App';
 import { useLocation, useNavigate } from 'react-router-dom';
 import StarRating from '../components/StarRating';
 import ImageModal from '../components/ImageModal';
 
 function Blog() {
+    const { user } = useAuth();
     const [posts, setPosts] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [newImage, setNewImage] = useState(null);
@@ -16,30 +16,28 @@ function Blog() {
     const [editingId, setEditingId] = useState(null);
     const [editComment, setEditComment] = useState('');
     const [rating, setRating] = useState(0);
-    const [selectedImage, setSelectedImage] = useState(null);
-    const [showModal, setShowModal] = useState(false);
+    const [modalImage, setModalImage] = useState(null);
 
-    const currentUser = getCurrentUser();
     const location = useLocation();
     const navigate = useNavigate();
     const selectedRestaurant = location.state?.selectedRestaurant;
 
-    // Load all blog posts on component mount
     useEffect(() => {
-        loadPosts();
+        const fetchData = async () => {
+            try {
+                await loadPosts();
+            } catch (_err) {
+                setError('Failed to load posts');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
     }, []);
 
     const loadPosts = async () => {
-        try {
-            setLoading(true);
-            const blogPosts = await getAllBlogPosts();
-            setPosts(blogPosts);
-        } catch (err) {
-            console.error('Error loading posts:', err);
-            setError('Failed to load blog posts');
-        } finally {
-            setLoading(false);
-        }
+        const blogPosts = await getAllBlogPosts();
+        setPosts(blogPosts);
     };
 
     const handleImageChange = (e) => {
@@ -67,60 +65,51 @@ function Blog() {
         }
     };
 
+    const handleOpenModal = (imageUrl) => {
+        setModalImage(imageUrl);
+    };
+
+    const handleCloseModal = () => {
+        setModalImage(null);
+    };
+
     const handleDragOver = (e) => {
         e.preventDefault();
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!currentUser) {
-            setError('You must be logged in to create a post');
+        if (!user) {
+            navigate('/login');
             return;
         }
-
         if (!selectedRestaurant) {
-            setError('Please select a restaurant from the homepage first');
+            setError('Select a restaurant from the homepage');
             return;
         }
 
         try {
-            // Convert image to base64 if it exists
-            let imageData = null;
-            if (newImage) {
-                imageData = imagePreview; // Already converted to base64 in handleImageChange
-            }
-
             await createBlogPost(
-                currentUser.UserID,
-                imageData,
+                user.id,
+                newImage ? imagePreview : null,
                 newComment,
                 rating,
                 selectedRestaurant
             );
-
             setNewComment('');
             setNewImage(null);
             setImagePreview('');
             setRating(0);
-
-            // Clear the selected restaurant from location state
             navigate('/blog', { replace: true, state: {} });
-
-            await loadPosts(); // Reload posts after creating a new one
+            await loadPosts();
         } catch (err) {
-            console.error('Error creating post:', err);
-            setError('Failed to create post');
+            setError(`Failed to post: ${err.message}`);
         }
     };
 
     const handleStartEdit = (post) => {
-        // Check if current user is the post's owner
-        if (currentUser?.UserID !== post.UserID) {
-            setError("You can only edit your own posts");
-            return;
-        }
-
-        setEditingId(post.BlogID);
+        if (!user) navigate('/login');
+        setEditingId(post.blog_id);
         setEditComment(post.comment);
     };
 
@@ -130,213 +119,254 @@ function Blog() {
     };
 
     const handleUpdate = async (blogId) => {
+        if (!user) navigate('/login');
         try {
-            // Get the post to verify ownership
-            const postToUpdate = posts.find(post => post.BlogID === blogId);
-
-            if (!postToUpdate || currentUser?.UserID !== postToUpdate.UserID) {
-                setError("You can only update your own posts");
-                return;
-            }
-
             await updateBlogPost(blogId, { comment: editComment });
             setEditingId(null);
-            setError(''); // Clear any previous errors
-            await loadPosts(); // Reload posts after update
-        } catch (err) {
-            console.error('Error updating post:', err);
+            setError('');
+            await loadPosts();
+        } catch (_err) {
             setError('Failed to update post');
         }
     };
 
     const handleDelete = async (blogId) => {
+        if (!user) navigate('/login');
         try {
-            // Get the post to verify ownership
-            const postToDelete = posts.find(post => post.BlogID === blogId);
-
-            if (!postToDelete || currentUser?.UserID !== postToDelete.UserID) {
-                setError("You can only delete your own posts");
-                return;
-            }
-
-            if (window.confirm('Are you sure you want to delete this post?')) {
+            if (window.confirm('Delete this post?')) {
                 await deleteBlogPost(blogId);
-                setError(''); // Clear any previous errors
-                await loadPosts(); // Reload posts after deletion
+                setError('');
+                await loadPosts();
             }
-        } catch (err) {
-            console.error('Error deleting post:', err);
+        } catch (_err) {
             setError('Failed to delete post');
         }
     };
 
-    const openImageModal = (imageUrl) => {
-        setSelectedImage(imageUrl);
-        setShowModal(true);
-    };
-
-    const closeImageModal = () => {
-        setShowModal(false);
-        setSelectedImage(null);
-    };
-
     return (
-        <div className="page-container">
-            <div className="container blog-page">
-                <h1>Restaurant Blog Posts</h1>
+        <div className="bg-black min-h-screen pt-24 pb-12">
+            <div className="container mx-auto px-4">
+                <h1 className="text-4xl font-bold text-light-orange mb-8 text-center font-poppins tracking-wide">
+                    Restaurant Reviews & Experiences
+                </h1>
 
-                {currentUser && selectedRestaurant ? (
-                    <div className="create-post">
-                        <h3>Create New Post</h3>
-                        <div className="selected-restaurant">
-                            <h4>Selected Restaurant:</h4>
-                            <div className="restaurant-preview">
-                                <RestaurantCard restaurant={selectedRestaurant} />
-                            </div>
+                {/* New Post Form */}
+                {user && selectedRestaurant ? (
+                    <div className="bg-gray-900 rounded-xl p-6 mb-8 shadow-lg border border-mossy-green max-w-3xl mx-auto">
+                        <h2 className="text-2xl font-semibold text-light-orange mb-4 font-poppins">
+                            Share Your Experience
+                        </h2>
+
+                        <div className="bg-white p-4 rounded-lg mb-4">
+                            <h3 className="text-lg font-medium text-mossy-green mb-2">
+                                {selectedRestaurant.tags?.name || 'Selected Restaurant'}
+                            </h3>
+                            <p className="text-gray-600">{selectedRestaurant.address || 'No address available'}</p>
                         </div>
-                        <form onSubmit={handleSubmit}>
-                            <div className="form-group">
-                                <label>Upload Image</label>
+
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            <div>
+                                <label className="block text-white text-lg mb-2">Upload a Photo</label>
                                 <div
-                                    className="image-drop-area"
+                                    className="border-2 border-dashed border-gray-600 rounded-lg p-4 text-center cursor-pointer hover:border-light-orange transition-colors"
                                     onDrop={handleImageDrop}
                                     onDragOver={handleDragOver}
                                 >
                                     {imagePreview ? (
-                                        <img
-                                            src={imagePreview}
-                                            alt="Preview"
-                                            className="image-preview"
-                                        />
+                                        <div className="relative">
+                                            <img src={imagePreview} alt="Preview" className="max-h-64 mx-auto rounded" />
+                                            <button
+                                                type="button"
+                                                className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center"
+                                                onClick={() => {
+                                                    setNewImage(null);
+                                                    setImagePreview('');
+                                                }}
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
                                     ) : (
-                                        <p>Drag & drop an image here, or click to select</p>
+                                        <div className="text-gray-400">
+                                            <p>Drag & drop image here, or click to select</p>
+                                        </div>
                                     )}
                                     <input
                                         type="file"
-                                        accept="image/jpeg, image/png"
+                                        accept="image/jpeg,image/png"
                                         onChange={handleImageChange}
-                                        className="file-input"
+                                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
                                     />
                                 </div>
                             </div>
-                            <div className="form-group">
-                                <label>Your Rating</label>
-                                <StarRating rating={rating} setRating={setRating} />
+
+                            <div>
+                                <label className="block text-white text-lg mb-2">Your Rating</label>
+                                <div className="bg-gray-800 p-3 rounded-lg">
+                                    <StarRating rating={rating} setRating={setRating} />
+                                </div>
                             </div>
-                            <div className="form-group">
-                                <label>Your Review</label>
+
+                            <div>
+                                <label className="block text-white text-lg mb-2">Your Review</label>
                                 <textarea
                                     value={newComment}
                                     onChange={(e) => setNewComment(e.target.value)}
-                                    placeholder="Write your review here"
+                                    placeholder="Share your thoughts about this restaurant..."
                                     required
+                                    className="w-full p-4 border rounded-lg bg-gray-800 text-white border-gray-700 focus:border-light-orange focus:ring-1 focus:ring-light-orange"
+                                    rows="4"
                                 />
                             </div>
-                            <button type="submit" className="btn btn-primary">Post Review</button>
+
+                            <button
+                                type="submit"
+                                className="w-full bg-light-orange text-black text-lg font-bold py-3 px-6 rounded-lg hover:bg-mossy-green hover:text-white transition-colors duration-300"
+                            >
+                                Post Review
+                            </button>
                         </form>
                     </div>
-                ) : currentUser ? (
-                    <div className="restaurant-selection-prompt">
-                        <p>Please go to the homepage and select a restaurant first</p>
-                        <button onClick={() => navigate('/')} className="btn btn-primary">
-                            Go to Homepage
-                        </button>
-                    </div>
                 ) : (
-                    <div className="login-prompt">
-                        <p>Please login to post restaurant reviews</p>
-                        <button onClick={() => navigate('/login')} className="btn btn-primary">
-                            Login
-                        </button>
+                    <div className="text-center mb-8">
+                        {user ? (
+                            <div className="bg-gray-900 rounded-xl p-6 max-w-lg mx-auto">
+                                <p className="text-white mb-4">To share your experience, first select a restaurant from the homepage</p>
+                                <button
+                                    onClick={() => navigate('/')}
+                                    className="bg-light-orange text-black font-medium py-2 px-6 rounded-lg hover:bg-mossy-green hover:text-white transition-colors"
+                                >
+                                    Find a Restaurant
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="bg-gray-900 rounded-xl p-6 max-w-lg mx-auto">
+                                <p className="text-white mb-4">Log in to share your own restaurant experiences</p>
+                                <div className="flex justify-center space-x-4">
+                                    <button
+                                        onClick={() => navigate('/login')}
+                                        className="bg-light-orange text-black font-medium py-2 px-6 rounded-lg hover:bg-mossy-green hover:text-white transition-colors"
+                                    >
+                                        Login
+                                    </button>
+                                    <button
+                                        onClick={() => navigate('/register')}
+                                        className="bg-gray-700 text-white font-medium py-2 px-6 rounded-lg hover:bg-gray-600 transition-colors"
+                                    >
+                                        Register
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {error && <p className="error-message">{error}</p>}
+                {error && (
+                    <div className="bg-red-900 text-white p-4 rounded-lg mb-8 max-w-3xl mx-auto">
+                        <p>{error}</p>
+                    </div>
+                )}
 
+                {/* Posts Display */}
                 {loading ? (
-                    <div className="loading">
-                        <p>Loading posts...</p>
+                    <div className="text-center py-12">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-light-orange"></div>
+                        <p className="text-white mt-2">Loading posts...</p>
+                    </div>
+                ) : posts.length === 0 ? (
+                    <div className="text-center py-12">
+                        <p className="text-white text-lg">No restaurant reviews yet.</p>
+                        <p className="text-gray-400 mt-2">Be the first to share your experience!</p>
                     </div>
                 ) : (
-                    <div className="blog-posts">
-                        {posts.length === 0 ? (
-                            <div className="no-posts">
-                                <p>No posts yet. Be the first to create one!</p>
-                            </div>
-                        ) : (
-                            posts.map((post) => (
-                                <div key={post.BlogID} className="blog-post-card">
-                                    <div className="post-header">
-                                        <h3>{post.restaurant?.tags?.name || 'Restaurant'}</h3>
-                                        <div className="post-rating">
-                                            {post.rating && (
-                                                <div className="stars">
-                                                    {'★'.repeat(post.rating)}
-                                                    {'☆'.repeat(5 - post.rating)}
-                                                </div>
-                                            )}
+                    <div className="grid grid-cols-3 gap-6 justify-items-center">
+                        {posts.map((post) => (
+                            <div key={post.blog_id} className="blog-post-card bg-white rounded-xl overflow-hidden">
+                                {post.image && (
+                                    <img
+                                        src={post.image}
+                                        alt="Blog post"
+                                        className="blog-image cursor-pointer"
+                                        onClick={() => handleOpenModal(post.image)}
+                                    />
+                                )}
+
+                                <div className="p-4">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h3 className="text-lg font-bold text-mossy-green truncate">
+                                            {post.restaurant?.tags?.name || 'Restaurant'}
+                                        </h3>
+                                        <div className="text-light-orange text-sm">
+                                            {post.rating ? '★'.repeat(post.rating) + '☆'.repeat(5 - post.rating) : '☆☆☆☆☆'}
                                         </div>
                                     </div>
 
-                                    {post.Image && (
-                                        <div
-                                            className="post-image-container"
-                                            onClick={() => openImageModal(post.Image)}
-                                        >
-                                            <img src={post.Image} alt="Blog post" className="post-image" />
-                                        </div>
-                                    )}
-
-                                    <div className="post-content">
-                                        {editingId === post.BlogID ? (
-                                            <div className="edit-form">
+                                    <div className="border-t border-gray-200 pt-2">
+                                        {editingId === post.blog_id ? (
+                                            <div className="edit-form mb-2">
                                                 <textarea
                                                     value={editComment}
                                                     onChange={(e) => setEditComment(e.target.value)}
+                                                    className="w-full p-2 border rounded-lg mb-2 border-gray-300 focus:border-light-orange text-sm"
+                                                    rows="3"
                                                 />
-                                                <div className="edit-actions">
-                                                    <button onClick={() => handleUpdate(post.BlogID)} className="btn btn-primary">
+                                                <div className="flex space-x-2">
+                                                    <button
+                                                        onClick={() => handleUpdate(post.blog_id)}
+                                                        className="bg-mossy-green text-white py-1 px-3 rounded-lg hover:bg-green-700 transition-colors text-sm"
+                                                    >
                                                         Save
                                                     </button>
-                                                    <button onClick={handleCancelEdit} className="btn btn-secondary">
+                                                    <button
+                                                        onClick={handleCancelEdit}
+                                                        className="bg-gray-300 text-gray-800 py-1 px-3 rounded-lg hover:bg-gray-400 transition-colors text-sm"
+                                                    >
                                                         Cancel
                                                     </button>
                                                 </div>
                                             </div>
                                         ) : (
-                                            <>
-                                                <p className="post-comment">{post.comment}</p>
-                                                <p className="post-date">
-                                                    {new Date(post.date).toLocaleString()}
-                                                </p>
-                                            </>
+                                            <p className="text-gray-700 mb-2 text-sm">{post.comment}</p>
                                         )}
+
+                                        <div className="flex justify-between items-center text-xs">
+                                            <p className="text-gray-500">
+                                                {new Date(post.created_at).toLocaleDateString('en-US', {
+                                                    year: 'numeric',
+                                                    month: 'short',
+                                                    day: 'numeric'
+                                                })}
+                                            </p>
+                                            <p className="text-mossy-green font-medium">By {post.username}</p>
+                                        </div>
                                     </div>
 
-                                    {currentUser && currentUser.UserID === post.UserID && (
-                                        <div className="post-actions">
-                                            {editingId !== post.BlogID && (
-                                                <button onClick={() => handleStartEdit(post)} className="btn btn-secondary">
+                                    {user && user.id === post.user_id && (
+                                        <div className="mt-3 flex space-x-2 justify-end border-t border-gray-100 pt-2">
+                                            {editingId !== post.blog_id && (
+                                                <button
+                                                    onClick={() => handleStartEdit(post)}
+                                                    className="bg-gray-200 text-gray-800 py-1 px-3 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                                                >
                                                     Edit
                                                 </button>
                                             )}
-                                            <button onClick={() => handleDelete(post.BlogID)} className="btn btn-danger">
+                                            <button
+                                                onClick={() => handleDelete(post.blog_id)}
+                                                className="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600 transition-colors text-sm"
+                                            >
                                                 Delete
                                             </button>
                                         </div>
                                     )}
                                 </div>
-                            ))
-                        )}
+                            </div>
+                        ))}
                     </div>
                 )}
 
-                {/* Image Modal */}
-                {showModal && (
-                    <div className="image-modal" onClick={closeImageModal}>
-                        <img src={selectedImage} alt="Enlarged" className="enlarged-image" />
-                        <button className="image-modal-close" onClick={closeImageModal}>×</button>
-                    </div>
+                {modalImage && (
+                    <ImageModal imageUrl={modalImage} onClose={handleCloseModal} />
                 )}
             </div>
         </div>

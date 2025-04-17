@@ -1,20 +1,39 @@
-import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import './index.css';
+import { Component } from 'react';
 import App from './App.jsx';
-import { initDB } from './services/indexedDB';
+import './styles/global.css';
 
-// Initialize the database when the application starts
-initDB()
-    .then(() => {
-        console.log('Database initialized successfully');
-    })
-    .catch((error) => {
-        console.error('Failed to initialize database:', error);
-    });
+// Error Boundary for top-level errors
+class ErrorBoundary extends Component {
+    state = { hasError: false, error: null };
 
-createRoot(document.getElementById('root')).render(
-    <StrictMode>
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+    }
+
+    componentDidCatch(error, errorInfo) {
+        console.error('Root ErrorBoundary caught:', error, errorInfo);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="dark-theme">
+                    <h2>Something went wrong</h2>
+                    <p>{this.state.error?.message || 'An unexpected error occurred'}</p>
+                    <button onClick={() => window.location.reload()} className="btn btn-primary">
+                        Reload Page
+                    </button>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
+const root = createRoot(document.getElementById('root'));
+root.render(
+    <ErrorBoundary>
         <App />
-    </StrictMode>,
+    </ErrorBoundary>
 );

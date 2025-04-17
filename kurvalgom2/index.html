@@ -1,27 +1,18 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Kurvalgom App</title>
-    <!-- Load scripts in the correct order -->
-    <script src="https://unpkg.com/absurd-sql@0.0.54/dist/sql-wasm.js"></script>
-    <script src="https://unpkg.com/absurd-sql@0.0.54/dist/index.js"></script>
-    <script src="https://unpkg.com/absurd-sql@0.0.54/dist/indexeddb-main-thread.js"></script>
-    <script>
-        // Make sure absurdSQL is explicitly added to window
-        window.addEventListener('DOMContentLoaded', () => {
-            if (!window.absurdSQL) {
-                console.error('absurdSQL failed to load properly');
-            } else {
-                console.log('absurdSQL loaded successfully');
-            }
-        });
-    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <!-- Comment out Cloudflare script for local development -->
+    <!--
+    <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'931ba0aa7ec7add8',t:'MTc0NDg4OTgxNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+    -->
 </body>
 </html>

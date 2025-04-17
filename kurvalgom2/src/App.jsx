@@ -1,66 +1,68 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useState, useEffect, Component } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { getCurrentUser } from './services/supabase'; // Named import
+import { supabase } from './services/supabase'; // Named import (fixed)
+
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Blog from './pages/Blog';
 import History from './pages/History';
 import Register from './pages/Register';
 import Login from './pages/Login';
-import './styles/global.css';
 
-// Error Boundary Component
-class ErrorBoundary extends Component {
-    state = { hasError: false, error: null };
+const AuthContext = createContext();
 
-    static getDerivedStateFromError(error) {
-        return { hasError: true, error };
-    }
-
-    render() {
-        if (this.state.hasError) {
-            return (
-                <div className="dark-theme">
-                    <h2>Something went wrong</h2>
-                    <p>{this.state.error.message}</p>
-                </div>
-            );
-        }
-        return this.props.children;
-    }
-}
+export const useAuth = () => useContext(AuthContext);
 
 function App() {
-    const [loggedInUser, setLoggedInUser] = useState(null);
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const user = localStorage.getItem('loggedInUser');
-        if (user) setLoggedInUser(JSON.parse(user));
+        const fetchUser = async () => {
+            try {
+                const currentUser = await getCurrentUser();
+                setUser(currentUser);
+            } catch (error) {
+                console.error('Error fetching user:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchUser();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null);
+        });
+
+        return () => {
+            authListener.subscription.unsubscribe();
+        };
     }, []);
 
-    const handleLogin = (user) => {
-        setLoggedInUser(user);
-        localStorage.setItem('loggedInUser', JSON.stringify(user));
+    const handleLogout = () => {
+        setUser(null);
     };
 
-    const handleLogout = () => {
-        setLoggedInUser(null);
-        localStorage.removeItem('loggedInUser');
-    };
+    if (loading) return <div>Loading...</div>;
 
     return (
-        <Router>
-            <Navbar loggedInUser={loggedInUser} onLogout={handleLogout} />
-            <ErrorBoundary>
-                <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/blog" element={<Blog />} />
-                    <Route path="/history" element={<History />} />
-                    <Route path="/register" element={<Register onLogin={handleLogin} />} />
-                    <Route path="/login" element={<Login onLogin={handleLogin} />} />
-                    <Route path="*" element={<Navigate to="/" />} />
-                </Routes>
-            </ErrorBoundary>
-        </Router>
+        <AuthContext.Provider value={{ user, handleLogout }}>
+            <Router>
+                <div className="app">
+                    <Navbar />
+                    <Routes>
+                        <Route path="/" element={<Home />} />
+                        <Route path="/blog" element={<Blog />} />
+                        <Route path="/history" element={<History />} />
+                        <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
+                        <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
+                        <Route path="*" element={<Navigate to="/" />} />
+                    </Routes>
+                </div>
+            </Router>
+        </AuthContext.Provider>
     );
 }
 

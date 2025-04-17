@@ -25,10 +25,33 @@ function ImageModal({ imageUrl, onClose }) {
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={handleImageClick}>
-                <button className="modal-close" onClick={onClose}>×</button>
-                <img src={imageUrl} alt="Enlarged" className="modal-image" />
+        <div
+            className="modal-overlay"
+            onClick={onClose}
+            style={{
+                animation: 'fadeIn 0.3s ease-out'
+            }}
+        >
+            <div
+                className="modal-content"
+                onClick={handleImageClick}
+                style={{
+                    animation: 'scaleIn 0.3s ease-out'
+                }}
+            >
+                <button
+                    className="modal-close"
+                    onClick={onClose}
+                    aria-label="Close image"
+                >
+                    ×
+                </button>
+                <img
+                    src={imageUrl}
+                    alt="Enlarged view"
+                    className="modal-image"
+                    loading="lazy"
+                />
             </div>
         </div>
     );
