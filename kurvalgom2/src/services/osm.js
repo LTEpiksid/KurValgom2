@@ -1,4 +1,28 @@
-const cache = new Map();
+const CACHE_KEY = 'osm_restaurant_cache';
+const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+// Load cache from localStorage
+const loadCache = () => {
+    const cachedData = localStorage.getItem(CACHE_KEY);
+    if (!cachedData) return new Map();
+    const parsed = JSON.parse(cachedData);
+    const now = Date.now();
+    // Filter out expired entries, ignoring the key
+    const validEntries = Object.entries(parsed).filter(([, value]) => now - value.timestamp < CACHE_EXPIRY);
+    return new Map(validEntries.map(([key, value]) => [key, value.data]));
+};
+
+// Save cache to localStorage
+const saveCache = (cache) => {
+    const now = Date.now();
+    const cacheObject = {};
+    cache.forEach((value, key) => {
+        cacheObject[key] = { data: value, timestamp: now };
+    });
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cacheObject));
+};
+
+const cache = loadCache();
 
 export const fetchNearbyRestaurants = async (lat, lng, radius = 1000) => {
     const cacheKey = `${lat}:${lng}:${radius}`;
@@ -34,6 +58,7 @@ export const fetchNearbyRestaurants = async (lat, lng, radius = 1000) => {
         })) || [];
 
         cache.set(cacheKey, results);
+        saveCache(cache); // Save to localStorage
         return results;
     } catch (error) {
         console.error("OSM Query Failed:", error);

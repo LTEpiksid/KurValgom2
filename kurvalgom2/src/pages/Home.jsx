@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { fetchNearbyRestaurants, getAddressFromCoordinates } from '../services/osm';
 import { useAuth } from '../App';
@@ -6,6 +6,23 @@ import useGeolocation from '../hooks/useGeolocation';
 import RestaurantMap from '../components/RestaurantMap';
 import { addToHistory } from '../services/supabase';
 import '../styles/global.css';
+
+// Custom hook for debouncing
+function useDebounce(value, delay) {
+    const [debouncedValue, setDebouncedValue] = useState(value);
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedValue(value);
+        }, delay);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [value, delay]);
+
+    return debouncedValue;
+}
 
 export default function Home() {
     const { lat, lng } = useGeolocation();
@@ -15,6 +32,9 @@ export default function Home() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
+
+    // Debounce the radius value to prevent rapid API calls
+    const debouncedRadius = useDebounce(radius, 500);
 
     const handleRadiusChange = (e) => {
         setRadius(parseInt(e.target.value));
@@ -31,7 +51,7 @@ export default function Home() {
         setRandomRestaurant(null);
 
         try {
-            const data = await fetchNearbyRestaurants(lat, lng, radius);
+            const data = await fetchNearbyRestaurants(lat, lng, debouncedRadius);
 
             if (data.length === 0) {
                 setError("No restaurants found. Try increasing the radius.");

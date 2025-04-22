@@ -16,37 +16,44 @@ function Navbar() {
         }
     };
 
+    // Debug: Log the user object to see what properties are available
+    console.log('User object in Navbar:', user);
+
+    // Use user.user_metadata?.username if available (Supabase stores custom data here),
+    // otherwise fall back to user.email or 'User'
+    const displayName = user?.user_metadata?.username || user?.email?.split('@')[0] || 'User';
+
     return (
-        <nav className="fixed top-0 w-full bg-black border-b-2 border-light-orange z-50">
-            <div className="container mx-auto px-4 py-4 flex items-center justify-between h-20">
+        <nav className="navbar">
+            <div className="navbar-container">
                 {/* Left Section - Navigation Links */}
-                <div className="flex items-center space-x-8">
-                    <Link to="/" className="nav-link font-medium text-lg">
+                <div className="navbar-left">
+                    <Link to="/" className="navbar-link">
                         Home
                     </Link>
-                    <Link to="/blog" className="nav-link font-medium text-lg">
+                    <Link to="/blog" className="navbar-link">
                         Blog
                     </Link>
-                    <Link to="/history" className="nav-link font-medium text-lg">
+                    <Link to="/history" className="navbar-link">
                         History
                     </Link>
                 </div>
 
                 {/* Center Section - Logo/Title */}
-                <Link to="/" className="nav-title absolute left-1/2 transform -translate-x-1/2 text-4xl">
+                <Link to="/" className="navbar-title">
                     KurValgom?
                 </Link>
 
                 {/* Right Section - Auth Controls */}
-                <div className="flex items-center space-x-8">
+                <div className="navbar-right">
                     {user ? (
                         <>
-                            <span className="text-mossy-green font-medium text-lg">
-                                {user.username || 'User'}
+                            <span className="navbar-username">
+                                {displayName}
                             </span>
                             <button
                                 onClick={handleLogoutClick}
-                                className="auth-button font-medium text-lg"
+                                className="navbar-auth-button"
                             >
                                 Logout
                             </button>
@@ -55,13 +62,13 @@ function Navbar() {
                         <>
                             <Link
                                 to="/login"
-                                className="auth-button font-medium text-lg"
+                                className="navbar-auth-button"
                             >
                                 Login
                             </Link>
                             <Link
                                 to="/register"
-                                className="auth-button font-medium text-lg"
+                                className="navbar-auth-button"
                             >
                                 Register
                             </Link>

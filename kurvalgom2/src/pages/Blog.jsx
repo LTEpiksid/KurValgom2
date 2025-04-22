@@ -2,6 +2,7 @@
 import { createBlogPost, getAllBlogPosts, updateBlogPost, deleteBlogPost } from '../services/supabase';
 import { useAuth } from '../App';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '../services/supabase';
 import StarRating from '../components/StarRating';
 import ImageModal from '../components/ImageModal';
 
@@ -89,13 +90,18 @@ function Blog() {
         }
 
         try {
-            await createBlogPost(
-                user.id,
-                newImage ? imagePreview : null,
-                newComment,
-                rating,
-                selectedRestaurant
-            );
+            let imageUrl = null;
+            if (newImage) {
+                const fileName = `${user.id}-${Date.now()}.${newImage.name.split('.').pop()}`;
+                const { error } = await supabase.storage
+                    .from('blog-images')
+                    .upload(fileName, newImage);
+                if (error) throw error;
+                const { data } = supabase.storage.from('blog-images').getPublicUrl(fileName);
+                imageUrl = data.publicUrl;
+            }
+
+            await createBlogPost(user.id, imageUrl, newComment, rating, selectedRestaurant);
             setNewComment('');
             setNewImage(null);
             setImagePreview('');
@@ -279,89 +285,91 @@ function Blog() {
                         <p className="text-gray-400 mt-2">Be the first to share your experience!</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-3 gap-6 justify-items-center">
-                        {posts.map((post) => (
-                            <div key={post.blog_id} className="blog-post-card bg-white rounded-xl overflow-hidden">
-                                {post.image && (
-                                    <img
-                                        src={post.image}
-                                        alt="Blog post"
-                                        className="blog-image cursor-pointer"
-                                        onClick={() => handleOpenModal(post.image)}
-                                    />
-                                )}
-
-                                <div className="p-4">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h3 className="text-lg font-bold text-mossy-green truncate">
-                                            {post.restaurant?.tags?.name || 'Restaurant'}
-                                        </h3>
-                                        <div className="text-light-orange text-sm">
-                                            {post.rating ? '★'.repeat(post.rating) + '☆'.repeat(5 - post.rating) : '☆☆☆☆☆'}
-                                        </div>
-                                    </div>
-
-                                    <div className="border-t border-gray-200 pt-2">
-                                        {editingId === post.blog_id ? (
-                                            <div className="edit-form mb-2">
-                                                <textarea
-                                                    value={editComment}
-                                                    onChange={(e) => setEditComment(e.target.value)}
-                                                    className="w-full p-2 border rounded-lg mb-2 border-gray-300 focus:border-light-orange text-sm"
-                                                    rows="3"
-                                                />
-                                                <div className="flex space-x-2">
-                                                    <button
-                                                        onClick={() => handleUpdate(post.blog_id)}
-                                                        className="bg-mossy-green text-white py-1 px-3 rounded-lg hover:bg-green-700 transition-colors text-sm"
-                                                    >
-                                                        Save
-                                                    </button>
-                                                    <button
-                                                        onClick={handleCancelEdit}
-                                                        className="bg-gray-300 text-gray-800 py-1 px-3 rounded-lg hover:bg-gray-400 transition-colors text-sm"
-                                                    >
-                                                        Cancel
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <p className="text-gray-700 mb-2 text-sm">{post.comment}</p>
-                                        )}
-
-                                        <div className="flex justify-between items-center text-xs">
-                                            <p className="text-gray-500">
-                                                {new Date(post.created_at).toLocaleDateString('en-US', {
-                                                    year: 'numeric',
-                                                    month: 'short',
-                                                    day: 'numeric'
-                                                })}
-                                            </p>
-                                            <p className="text-mossy-green font-medium">By {post.username}</p>
-                                        </div>
-                                    </div>
-
-                                    {user && user.id === post.user_id && (
-                                        <div className="mt-3 flex space-x-2 justify-end border-t border-gray-100 pt-2">
-                                            {editingId !== post.blog_id && (
-                                                <button
-                                                    onClick={() => handleStartEdit(post)}
-                                                    className="bg-gray-200 text-gray-800 py-1 px-3 rounded-lg hover:bg-gray-300 transition-colors text-sm"
-                                                >
-                                                    Edit
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={() => handleDelete(post.blog_id)}
-                                                className="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600 transition-colors text-sm"
-                                            >
-                                                Delete
-                                            </button>
-                                        </div>
+                    <div className="blog-posts-container max-w-7xl mx-auto">
+                        <div className="blog-posts-grid">
+                            {posts.map((post) => (
+                                <div key={post.blog_id} className="blog-post-card bg-white rounded-xl overflow-hidden">
+                                    {post.image && (
+                                        <img
+                                            src={post.image}
+                                            alt="Blog post"
+                                            className="blog-image cursor-pointer"
+                                            onClick={() => handleOpenModal(post.image)}
+                                        />
                                     )}
+
+                                    <div className="p-4">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <h3 className="text-lg font-bold text-mossy-green truncate">
+                                                {post.restaurant?.tags?.name || 'Restaurant'}
+                                            </h3>
+                                            <div className="text-light-orange text-sm">
+                                                {post.rating ? '★'.repeat(post.rating) + '☆'.repeat(5 - post.rating) : '☆☆☆☆☆'}
+                                            </div>
+                                        </div>
+
+                                        <div className="border-t border-gray-200 pt-2">
+                                            {editingId === post.blog_id ? (
+                                                <div className="edit-form mb-2">
+                                                    <textarea
+                                                        value={editComment}
+                                                        onChange={(e) => setEditComment(e.target.value)}
+                                                        className="w-full p-2 border rounded-lg mb-2 border-gray-300 focus:border-light-orange text-sm"
+                                                        rows="3"
+                                                    />
+                                                    <div className="flex space-x-2">
+                                                        <button
+                                                            onClick={() => handleUpdate(post.blog_id)}
+                                                            className="bg-mossy-green text-white py-1 px-3 rounded-lg hover:bg-green-700 transition-colors text-sm"
+                                                        >
+                                                            Save
+                                                        </button>
+                                                        <button
+                                                            onClick={handleCancelEdit}
+                                                            className="bg-gray-300 text-gray-800 py-1 px-3 rounded-lg hover:bg-gray-400 transition-colors text-sm"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <p className="text-gray-700 mb-2 text-sm">{post.comment}</p>
+                                            )}
+
+                                            <div className="flex justify-between items-center text-xs">
+                                                <p className="text-gray-500">
+                                                    {new Date(post.created_at).toLocaleDateString('en-US', {
+                                                        year: 'numeric',
+                                                        month: 'short',
+                                                        day: 'numeric'
+                                                    })}
+                                                </p>
+                                                <p className="text-mossy-green font-medium">By {post.username}</p>
+                                            </div>
+                                        </div>
+
+                                        {user && user.id === post.user_id && (
+                                            <div className="mt-3 flex space-x-2 justify-end border-t border-gray-100 pt-2">
+                                                {editingId !== post.blog_id && (
+                                                    <button
+                                                        onClick={() => handleStartEdit(post)}
+                                                        className="bg-gray-200 text-gray-800 py-1 px-3 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => handleDelete(post.blog_id)}
+                                                    className="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600 transition-colors text-sm"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
                 )}
 
